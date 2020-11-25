@@ -1,6 +1,4 @@
-"""
-Script to fetch historical tick data from IB.
-"""
+"""Script to fetch historical tick data from IB."""
 import argparse
 import time
 import sys
@@ -9,26 +7,23 @@ from pathlib import Path
 
 import pandas as pd
 from ibpy_native import IBBridge
-from ibpy_native.client import Const, IBClient
+from ibpy_native.client import IBClient
 from ibpy_native.error import IBError
+from ibpy_native.utils import const
 from ibapi.wrapper import Contract
 
 class _FetchCmd:
     # pylint: disable=protected-access
     @classmethod
     def invoke(cls):
-        """
-        Invokes the command actions
-        """
+        """Invokes the command actions."""
         cmd = cls.build_cmd()
         args = cmd.parse_args()
         args.func(args)
 
     @classmethod
     def build_cmd(cls) -> argparse.ArgumentParser:
-        """
-        Build the command line interface for historical ticks fetcher
-        """
+        """Build the command line interface for historical ticks fetcher."""
 
         # Create the top level parser
         parser = argparse.ArgumentParser(
@@ -91,6 +86,12 @@ class _FetchCmd:
             "(default: to latest available tick)"
         )
         parser.add_argument(
+            '--timeout', dest='timeout', default=120,
+            metavar='', type=int,
+            help="specifies the second(s) to wait for the request\n"
+            "(default: 120s)",
+        )
+        parser.add_argument(
             '-o', '--out', dest='out', metavar='',
             help="specifies the destination path & filename for the CSV file "
             "of tick data received\n"
@@ -101,9 +102,7 @@ class _FetchCmd:
     # Sub-command builders
     @classmethod
     def _stk_cmd(cls, parent: argparse._SubParsersAction):
-        """
-        Create the parser for the "stk" command
-        """
+        """Create the parser for the "stk" command."""
         parser: argparse.ArgumentParser = parent.add_parser(
             'stk', aliases=['stock'], help=""
         )
@@ -113,9 +112,7 @@ class _FetchCmd:
 
     @classmethod
     def _fut_cmd(cls, parent: argparse._SubParsersAction):
-        """
-        Create the parser for the "fut" command
-        """
+        """Create the parser for the "fut" command."""
         parser: argparse.ArgumentParser = parent.add_parser(
             'fut', aliases=['futures'], help=""
         )
@@ -202,9 +199,9 @@ class _FetchCmd:
         end_time: datetime = datetime.now()
 
         if args.ft:
-            start_time = datetime.strptime(args.ft, Const.TIME_FMT.value)
+            start_time = datetime.strptime(args.ft, const._IB.TIME_FMT)
         if args.to:
-            end_time = datetime.strptime(args.to, Const.TIME_FMT.value)
+            end_time = datetime.strptime(args.to, const._IB.TIME_FMT)
 
         if contract.lastTradeDateOrContractMonth != '':
             last_trade_time = datetime.strptime(
@@ -222,7 +219,7 @@ class _FetchCmd:
 
         fetch_result = bridge.get_historical_ticks(
             contract=contract, start=start_time, end=end_time,
-            data_type=args.data_type, attempts=10, timeout=180
+            data_type=args.data_type, attempts=-1, timeout=args.timeout
         )
 
         if fetch_result['completed']:
